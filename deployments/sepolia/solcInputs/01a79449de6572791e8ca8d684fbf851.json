@@ -1,0 +1,35 @@
+{
+  "language": "Solidity",
+  "sources": {
+    "contracts/NacosChat.sol": {
+      "content": "// SPDX-License-Identifier: MIT\n\npragma solidity ^0.8.0;\n\ncontract NacosChat {\n    struct User {\n        address wallet;\n        string name;\n        uint[] userTweets;\n        address[] following;\n        address[] followers;\n        mapping(address => Message[]) conversations;\n    }\n\n    struct Message {\n        uint messageId;\n        string content;\n        address from;\n        address to;\n    }\n\n    struct Tweet {\n        uint tweetId;\n        address author;\n        string content;\n        uint createdAt;\n    }\n\n    mapping(address => User) public users; //to track users who register...abi\n\n    mapping(uint => Tweet) public tweets; //to track tweets as they come in, tweet1, tweet2\n\n    uint256 public nextTweetId; //to track the Ids to make it available, in case someone else wanna tweet, so we creat a state variable\n\n    uint public nextMessageId;\n\n    function registerAccount(string memory _name) external {\n        //we need to sanity check to ensure the person isn't leaving out an empty string. we typecast the string and convert it to byte.\n        bytes memory bname = bytes(_name);\n\n        require(bname.length != 0, \"Name cannot be an empty string\");\n\n        User storage newUser = users[msg.sender];\n        newUser.wallet = msg.sender;\n        newUser.name = _name;\n    }\n\n    modifier accountExist(address _user) {\n        User storage thisUser = users[_user];\n\n        bytes memory thisUserBytestr = bytes(thisUser.name);\n\n        require(\n            thisUserBytestr.length != 0,\n            \"This wallet does not belong to anyone\"\n        );\n        _;\n    }\n\n    function postTweet(\n        string memory _content\n    ) external accountExist(msg.sender) {\n        Tweet memory newTweet = Tweet(\n            nextTweetId,\n            msg.sender,\n            _content,\n            block.timestamp\n        );\n\n        tweets[nextTweetId] = newTweet;\n\n        User storage thisUser = users[msg.sender];\n\n        thisUser.userTweets.push(nextTweetId);\n        nextTweetId++;\n    }\n\n    function readTweet(address _user) external view returns (Tweet[] memory) {\n        uint[] storage userTweetsIds = users[_user].userTweets;\n\n        Tweet[] memory userTweets = new Tweet[](userTweetsIds.length); //recall Tweet is a struct...\n\n        for (uint i = 0; i < userTweetsIds.length; i++) {\n            userTweets[i] = tweets[userTweetsIds[i]];\n        }\n\n        return userTweets;\n    }\n\n    function followUser(\n        address _user\n    ) external accountExist(_user) accountExist(msg.sender) {\n        User storage functionCaller = users[msg.sender];\n        functionCaller.following.push(_user);\n\n        User storage user = users[_user];\n        user.followers.push(msg.sender);\n    }\n\n    function getFollowing()\n        external\n        view\n        accountExist(msg.sender)\n        returns (address[] memory)\n    {\n        return users[msg.sender].following;\n    }\n\n    function getFollowers()\n        external\n        view\n        accountExist(msg.sender)\n        returns (address[] memory)\n    {\n        return users[msg.sender].followers;\n    }\n\n    function sendMessage(\n        address _recipient,\n        string memory _content\n    ) external accountExist(msg.sender) accountExist(_recipient) {\n        Message memory newMessage = Message(\n            nextMessageId,\n            _content,\n            msg.sender,\n            _recipient\n        ); //we just instantiate our struct\n\n        User storage sender = users[msg.sender];\n        sender.conversations[_recipient].push(newMessage);\n\n        User storage recipient = users[_recipient];\n        recipient.conversations[msg.sender].push(newMessage);\n\n        nextMessageId++;\n    }\n\n    function getConversationWithUsers(\n        address _user\n    ) external view returns (Message[] memory) {\n        User storage thisUser = users[msg.sender];\n        return thisUser.conversations[_user];\n    }\n}\n"
+    }
+  },
+  "settings": {
+    "optimizer": {
+      "enabled": false,
+      "runs": 200
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "abi",
+          "evm.bytecode",
+          "evm.deployedBytecode",
+          "evm.methodIdentifiers",
+          "metadata",
+          "devdoc",
+          "userdoc",
+          "storageLayout",
+          "evm.gasEstimates"
+        ],
+        "": [
+          "ast"
+        ]
+      }
+    },
+    "metadata": {
+      "useLiteralContent": true
+    }
+  }
+}
